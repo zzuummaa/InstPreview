@@ -1,31 +1,41 @@
 package ru.zuma.instpreview
 
-import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
-import android.view.MenuItem
-import android.content.Intent
-import android.widget.Toast
-import android.R.attr.data
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
 import android.util.Log
 import android.view.Menu
-import java.nio.file.Files.size
-import android.content.ClipData
-import android.net.Uri
-import android.provider.MediaStore
-
-
+import android.view.MenuItem
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.GridLayoutManager
+import kotlinx.android.synthetic.main.activity_main.*
 
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var imagesEncodedList: ArrayList<String>
+    private lateinit var imageAdapter: ImageAdapter
+    private lateinit var imageURIList: ArrayList<Uri>
+    private lateinit var imageURISet:  HashSet<Uri>
     private val LOAD_IMAGE_RESULTS = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setSupportActionBar(findViewById(R.id.my_toolbar))
+
+        imageURISet  = HashSet()
+        imageURIList = ArrayList()
+
+        val colCount = 3
+
+        imageAdapter = ImageAdapter(imageURIList, this.contentResolver)
+        rvImages.apply {
+            setHasFixedSize(true)
+            layoutManager = GridLayoutManager(this@MainActivity, colCount)
+            adapter = imageAdapter
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -55,29 +65,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         try {
-            var imageEncoded: String
             // When an Image is picked
             if (requestCode == LOAD_IMAGE_RESULTS && resultCode == Activity.RESULT_OK && null != data) {
                 // Get the Image from data
 
-                val filePathColumn = arrayOf(MediaStore.Images.Media.DATA)
-                imagesEncodedList = ArrayList<String>()
+
                 if (data.data != null) {
-                    val mImageUri = data.data
+                    val mImageUri = data.data ?: throw NullPointerException()
+                    if (imageURISet.add(mImageUri)) imageURIList.add(0, mImageUri)
                     Log.i(this@MainActivity.javaClass.simpleName, mImageUri?.path)
                 } else {
                     if (data.clipData != null) {
                         val mClipData = data.clipData
-                        val mArrayUri = ArrayList<Uri>()
                         for (i in 0 until mClipData!!.itemCount) {
                             val item = mClipData.getItemAt(i)
                             val uri = item.uri
-                            mArrayUri.add(uri)
+                            if (imageURISet.add(uri)) imageURIList.add(0, uri)
                             Log.i(this@MainActivity.javaClass.simpleName, uri?.path)
                         }
-                        Log.i(this@MainActivity.javaClass.simpleName, "Selected Images " + mArrayUri.size)
                     }
                 }
+                imageAdapter.notifyDataSetChanged()
             } else {
                 Toast.makeText(
                     this, "You haven't picked Image",
